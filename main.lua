@@ -10,15 +10,16 @@ love.window.setMode(windowWidth, windowHeight)
 
 -- Creating a new boid
 local function createBoid()
-    return {
-        position = vector(windowWidth / 2, windowHeight / 2),--love.math.random(0, windowWidth), love.math.random(0, windowHeight)),
-        velocity = vector(love.math.random(-200, 200), love.math.random(-200, 200)),
-        maxSpeed = 200,         -- Top speed
-        cohesionWeight = 1,     -- Cohesion rule's weight
-        separationWeight = 1,   -- Separation rule's weight
-        alignmentWeight = 1     -- Alignment rule's weight
+    local startPosition = vector(math.random(0, windowWidth), math.random(0,windowHeight))
+    
+    return{
+        position = startPosition,
+        velocity = vector(love.math.random(50, 200), love.math.random(50, 200)),
+        acceleration = vector.ZERO,         -- Top speed
+        colour = {math.random(0,1), math.random(0,1), math.random(0,1)},
+        maxForce = 0.2,
+        maxSpeed = 200
     }
-
 end
 
 -- Inicialização do jogo
@@ -34,23 +35,30 @@ end
 function love.draw()
  
     for i,b in ipairs(boids) do
-        love.graphics.setColor(0.4, 1, 0.6)
-
+        love.graphics.setColor(b.colour)
         local angle = math.atan2(b.velocity.y, b.velocity.x)
         drawBoid ("fill", b.position.x, b.position.y, 20, 10 , angle)
     end
-
 end
+
 
 function love.update(dt)
 
+    flock(boids)
+
     -- UPDATE BOID POSITION!
 
-    for i, b in ipairs(boids) do
-        -- Atualizar a posição com base na velocidade e no tempo decorrido (dt)
-        b.position = b.position + b.velocity * dt
+    for i, b in pairs(boids) do
 
-        -- Verificar se o boid atingiu as bordas da tela e ajustar sua posição e velocidade se necessário
+        local aligment = align(boids)
+        b.acceleration = aligment
+
+
+        -- Atualizar a posição com base na velocity e no tempo decorrido (dt)
+        b.position = b.position + b.velocity * dt
+        b.velocity = b.velocity + b.acceleration * dt
+
+      --[[   -- Verificar se o boid atingiu as bordas da tela e ajustar sua posição e velocity se necessário
         if b.position.x < 0 then
             b.position.x = 0
             -- Ajustar o ângulo para apontar para a direita
@@ -68,10 +76,23 @@ function love.update(dt)
             b.position.y = windowHeight
             -- Ajustar o ângulo para apontar para cima
             b.velocity.y = -math.abs(b.velocity.y)
-        end
-    end
-end
+        end]]
 
+
+       if b.position.x < 0 then
+            b.position.x = windowWidth
+        elseif b.position.x > windowWidth then
+            b.position.x = 0
+        end
+        if b.position.y < 0 then
+            b.position.y = windowHeight
+        elseif b.position.y > windowHeight then
+            b.position.y = 0
+        end
+    end    
+    
+    
+end
 
 
 function drawBoid (mode, x, y, length, width , angle) -- position, length, width and angle
@@ -80,4 +101,76 @@ function drawBoid (mode, x, y, length, width , angle) -- position, length, width
 	love.graphics.rotate( angle )
 	love.graphics.polygon(mode, -length/2, -width /2, -length/2, width /2, length/2, 0)
 	love.graphics.pop() 
+end
+
+
+function align(boids)
+    local radius = 100
+    local steeringForce = vector.ZERO
+    local totalBoids = 0
+
+    maxSpeed = 0
+    for _, boid in pairs(boids) do
+
+        for _, otherboid in ipairs(boids) do
+
+            local distance = vector.distanceTo(boid.position, otherboid.position)
+
+            if boid ~= otherboid and distance < radius then
+
+                steeringForce = steeringForce + otherboid.velocity
+                totalBoids = totalBoids + 1
+            end
+        end
+   
+        if totalBoids > 0 then
+            steeringForce = steeringForce / totalBoids
+            steeringForce = steeringForce - boid.velocity
+            vector.normalized(steeringForce * math.min(0, boid.maxSpeed, boid.maxForce))
+
+        end
+    end
+    return steeringForce
+
+end
+
+
+function cohesion(boids)
+    local radius = 100
+    local steeringForce = vector.ZERO
+    local totalBoids = 0
+
+    maxSpeed = 0
+    for _, boid in pairs(boids) do
+
+        for _, otherboid in ipairs(boids) do
+
+            local distance = vector.distanceTo(boid.position, otherboid.position)
+
+            if boid ~= otherboid and distance < radius then
+
+                steeringForce = steeringForce + otherboid.velocity
+                totalBoids = totalBoids + 1
+            end
+        end
+   
+        if totalBoids > 0 then
+            steeringForce = steeringForce / totalBoids
+            steeringForce = steeringForce - boid.position
+            vector.normalized(steeringForce * math.min(0, boid.maxSpeed, boid.maxForce))
+            steeringForce = steeringForce - boid.velocity
+
+        end
+    end
+    return steeringForce
+
+end
+
+
+function flock(boids)
+    for _,b in pairs(boids) do
+        local alignment = align(boids)
+        local cohesion = cohesion(boids)
+        b.acceleration = alignment + cohesion
+    end
 end
