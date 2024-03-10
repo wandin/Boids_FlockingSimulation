@@ -2,8 +2,8 @@
 local vector = require "libraries/hump.vector"
 
 -- Window's settings
-local windowWidth = 1280
-local windowHeight = 768
+local windowWidth = 800
+local windowHeight = 600
 
 love.window.setTitle("Boids - Flocking Simulation")
 love.window.setMode(windowWidth, windowHeight)
@@ -13,9 +13,9 @@ local function createBoid()
     local startPosition = vector.new(math.random(0, windowWidth), math.random(0,windowHeight))
     
     local magnitude = love.math.random(2, 100)   -- Magnitude aleatória entre 2 e 4
-    --local direction = vector.new(love.math.random(-1, 1), love.math.random(-1, 1))
+    local direction = vector.new(love.math.random(-1, 1), love.math.random(-1, 1))
 
-    local direction = vector.new(love.math.random() * 2 - 1, love.math.random() * 2 - 1)
+    --local direction = vector.new(love.math.random() * 2 - 1, love.math.random() * 2 - 1)
     direction:normalizeInplace()
     local sumvelocity = direction * magnitude  -- Ajustar magnitude da velocidade
 
@@ -25,7 +25,7 @@ local function createBoid()
         position = startPosition,
         velocity = sumvelocity,
         acceleration = vector.new(0,0),         
-        maxForce = 1,
+        maxForce = 3    ,
         maxSpeed = 100
     }
 end
@@ -51,9 +51,10 @@ end
 
 
 function love.update(dt)
+
+    align(boids)
     cohesion(boids)
-
-
+    separation(boids)
     for i, b in pairs(boids) do
         -- UPDATE BOID POSITION!
         b.position = b.position + b.velocity * dt
@@ -71,7 +72,6 @@ function love.update(dt)
             b.position.y = 0
         end
     end    
-    flock(boids) 
 end
 
 
@@ -85,7 +85,7 @@ end
 
 
 function align(boids)
-    local radius = 100
+    local radius = 5000
     local steeringForce = vector.new(0,0)
     local totalBoids = 0
 
@@ -97,82 +97,72 @@ function align(boids)
                 totalBoids = totalBoids + 1
             end
         end
+        
+        if totalBoids > 0 then
+            steeringForce = steeringForce / totalBoids
+            steeringForce = steeringForce:normalizeInplace()                -- normalize to set magnitude below
+            steeringForce = steeringForce * boid.maxSpeed               -- multiplying by maxSpeed after normalizing (kinda setMag)
+            steeringForce = steeringForce - boid.velocity
+            steeringForce = steeringForce:trimInplace(boid.maxForce)    -- limiting to maxForce
+        
+            boid.acceleration = boid.acceleration + steeringForce
+        end
     end
-    if totalBoids > 0 then
-        steeringForce = steeringForce / totalBoids
-        steeringForce = steeringForce:normalizeInplace()                -- normalize to set magnitude below
-        steeringForce = steeringForce * boids[1].maxSpeed               -- multiplying by maxSpeed after normalizing (kinda setMag)
-        steeringForce = steeringForce - boids[1].velocity
-        steeringForce = steeringForce:trimInplace(boids[1].maxForce)    -- limiting to maxForce
-    end
-    return steeringForce
 end
 
 function separation(boids)
-    local radius = 50
-    local steeringForce = vector.new(0,0)
-    local totalBoids = 0
+    local radius = 5000
 
     for _, boid in pairs(boids) do
+        local steeringForce = vector.new(0, 0)
+        local totalBoids = 0
+
         for _, otherboid in ipairs(boids) do
             local distance = boid.position:dist(otherboid.position)
+
             if boid ~= otherboid and distance < radius then
                 local distanceMultiplied = distance * distance
-
-                local distanceToOthers = vector.new(0,0)
-                distanceToOthers = distanceToOthers.__sub(boid.position, otherboid.position)
+                local distanceToOthers = otherboid.position - boid.position
                 distanceToOthers = distanceToOthers / distanceMultiplied
                 steeringForce = steeringForce + distanceToOthers
-                totalBoids = totalBoids + 1
-            end
-        end
-    end
-    if totalBoids > 0 then
-        steeringForce = steeringForce / totalBoids
-        steeringForce = steeringForce:normalizeInplace()            -- normalize to set magnitude below
-        steeringForce = steeringForce * boids[1].maxSpeed               -- multiplying by maxSpeed after normalizing (kinda setMag)
-
-        steeringForce = steeringForce - boids[1].velocity
-        steeringForce = steeringForce:trimInplace(boids[1].maxForce)    -- limiting to maxForce
-    end
-    return steeringForce
-end
-
-function cohesion(boids)
-    local radius = 500
-    local steeringForce = vector.new(0,0)
-    local totalBoids = 0
-
-    for _, boid in pairs(boids) do
-        for _, otherboid in ipairs(boids) do
-            local distance = boid.position:dist(otherboid.position)
-
-            if boid ~= otherboid and distance < radius then
-                steeringForce = steeringForce + otherboid.position
                 totalBoids = totalBoids + 1
             end
         end
 
         if totalBoids > 0 then
             steeringForce = steeringForce / totalBoids
-            steeringForce = steeringForce - boid.position
-            steeringForce = steeringForce:normalizeInplace() * boid.maxSpeed
+            steeringForce = steeringForce:normalizeInplace()            -- normalize to set magnitude below
+            steeringForce = steeringForce * boid.maxSpeed               -- multiplying by maxSpeed after normalizing (kinda setMag)
             steeringForce = steeringForce - boid.velocity
-            steeringForce = steeringForce:trimInplace(boid.maxForce)
-            steeringForce = steeringForce:trimInplace(boid.maxSpeed)
-
+            steeringForce = steeringForce:trimInplace(boid.maxForce)    -- limiting to maxForce
             boid.acceleration = boid.acceleration + steeringForce
         end
     end
-    return steeringForce
 end
 
+function cohesion(boids)
+    local radius = 10000
+    local steeringForce = vector.new(0,0)
+    local totalBoids = 0
 
-function flock(boids)
-    local alignment = align(boids)
-    local cohesion = cohesion(boids)
-    --local separation = separation(boids)
-    for _,b in pairs(boids) do
-        b.acceleration = b.acceleration + alignment + cohesion --+ separation
+    for _, boid in pairs(boids) do
+        for _, otherboid in ipairs(boids) do
+            local distance = boid.position:dist(otherboid.position)
+
+            if boid ~= otherboid and distance < radius then
+
+                steeringForce = steeringForce + otherboid.position
+                totalBoids = totalBoids + 1
+            end
+            if totalBoids > 0 and boid.colour == otherboid.colour then
+                steeringForce = steeringForce / totalBoids
+                steeringForce = steeringForce - boid.position
+                steeringForce = steeringForce:normalizeInplace() * boid.maxSpeed
+                steeringForce = steeringForce - boid.velocity
+                steeringForce = steeringForce:trimInplace(boid.maxForce)
+    
+                boid.acceleration = boid.acceleration + steeringForce
+            end
+        end
     end
 end
