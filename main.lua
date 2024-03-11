@@ -25,7 +25,7 @@ local function createBoid()
         position = startPosition,
         velocity = sumvelocity,
         acceleration = vector.new(0,0),         
-        maxForce = 3    ,
+        maxForce = 1,
         maxSpeed = 100
     }
 end
@@ -85,7 +85,7 @@ end
 
 
 function align(boids)
-    local radius = 5000
+    local radius = 250
     local steeringForce = vector.new(0,0)
     local totalBoids = 0
 
@@ -111,7 +111,7 @@ function align(boids)
 end
 
 function separation(boids)
-    local radius = 5000
+    local radius = 275
 
     for _, boid in pairs(boids) do
         local steeringForce = vector.new(0, 0)
@@ -134,14 +134,14 @@ function separation(boids)
             steeringForce = steeringForce:normalizeInplace()            -- normalize to set magnitude below
             steeringForce = steeringForce * boid.maxSpeed               -- multiplying by maxSpeed after normalizing (kinda setMag)
             steeringForce = steeringForce - boid.velocity
-            steeringForce = steeringForce:trimInplace(boid.maxForce)    -- limiting to maxForce
+            steeringForce = steeringForce:trimInplace(boid.maxForce * 1.13)    -- limiting to maxForce
             boid.acceleration = boid.acceleration + steeringForce
         end
     end
 end
 
 function cohesion(boids)
-    local radius = 10000
+    local radius = 300
     local steeringForce = vector.new(0,0)
     local totalBoids = 0
 
@@ -159,7 +159,7 @@ function cohesion(boids)
                 steeringForce = steeringForce - boid.position
                 steeringForce = steeringForce:normalizeInplace() * boid.maxSpeed
                 steeringForce = steeringForce - boid.velocity
-                steeringForce = steeringForce:trimInplace(boid.maxForce)
+                steeringForce = steeringForce:trimInplace(boid.maxForce * 0.25)
     
                 boid.acceleration = boid.acceleration + steeringForce
             end
